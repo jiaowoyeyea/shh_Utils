@@ -36,7 +36,7 @@
 		<!-- 加载Hibernate映射文件 -->
 		<property name="mappingDirectoryLocations">
 			<list>
-				<value>classpath:com.hao.bos.domain</value>
+				<value>classpath:com/hao/bos/domain</value>
 			</list>
 		</property>
 	</bean>
