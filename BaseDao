@@ -1,0 +1,107 @@
+
+import java.io.Serializable;
+import java.lang.reflect.ParameterizedType;
+import java.util.List;
+
+import javax.annotation.Resource;
+
+import org.hibernate.Query;
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.criterion.DetachedCriteria;
+import org.hibernate.criterion.Projections;
+import org.springframework.orm.hibernate3.support.HibernateDaoSupport;
+
+import com.hao.bos.dao.base.BaseDao;
+import com.hao.bos.utlis.PageBean;
+
+public class BaseDaoImpl<T> extends HibernateDaoSupport implements BaseDao<T> {
+	
+	//被操作的实体类型
+	private Class<T> entityClass;
+	
+	//使用注解方式进行依赖注入
+	@Resource
+	public void setMySessionFactory(SessionFactory sessionFactory){
+		super.setSessionFactory(sessionFactory);
+	}
+	
+	/**
+	 * 在构造方法中动态获得操作的实体类型
+	 */
+	@SuppressWarnings("unchecked")
+	public BaseDaoImpl(){
+		//获得父类（BaseDaoImpl<T>）的运行时的类型和泛型类型（被参数化的类型）
+		ParameterizedType genericSuperclass = (ParameterizedType) this.getClass().getGenericSuperclass();
+		//获得实际参数，只有1个
+		entityClass = (Class<T>) genericSuperclass.getActualTypeArguments()[0];
+	}
+	
+	public void save(T entity) {
+		this.getHibernateTemplate().save(entity);
+	}
+
+	public void delete(T entity) {
+		this.getHibernateTemplate().delete(entity);
+	}
+
+	public void update(T entity) {
+		this.getHibernateTemplate().update(entity);
+	}
+
+	public T findById(Serializable id) {
+		return this.getHibernateTemplate().get(entityClass, id);
+	}
+
+	@SuppressWarnings("unchecked")
+	public List<T> findAll() {
+		String hql = "FROM "+entityClass.getSimpleName();
+		return this.getHibernateTemplate().find(hql);
+	}
+
+	@Override
+	public void executeUpdate(String querName, Object... objects) {
+		//从本地线程中获得session
+		Session session = this.getSession();
+		//使用命名查询语句获得一个查询对象
+		Query query = session.getNamedQuery(querName);
+		
+		int i = 0;
+		//给query设置参数
+		for(Object obj : objects){
+			query.setParameter(i++, obj);
+		}
+		
+		query.executeUpdate();//执行更新
+		
+	}
+
+	@Override
+	public<T> void pageQuery(PageBean<T> pageBean) {
+		DetachedCriteria detachedCriteria = pageBean.getDetachedCriteria();
+		//总数据量------select count(*) from bc_staff
+		//改变Hibernate框架发出的sql形式
+		detachedCriteria.setProjection(Projections.rowCount());//改变表和类的映射关系,更改查询语句
+		//获得总记录数
+		List<Long> lon = this.getHibernateTemplate().findByCriteria(detachedCriteria);
+		//设置总记录数
+		pageBean.setTotal(lon.get(0).intValue());
+		//修改sql语句
+		detachedCriteria.setProjection(null);
+		//重置表和类的映射关系
+		detachedCriteria.setResultTransformer(DetachedCriteria.ROOT_ENTITY);
+		//查询当前页面展示的数据
+		List<T> rows = this.getHibernateTemplate().findByCriteria(detachedCriteria,pageBean.getFirstResult(),pageBean.getPageSize());
+		
+		pageBean.setRows(rows);
+		
+	}
+
+	@Override
+	public void saveOrUpdate(T entity) {
+		this.getHibernateTemplate().saveOrUpdate(entity);
+	}
+	
+	
+
+}
