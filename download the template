@@ -1,0 +1,129 @@
+
+import java.io.IOException;
+import java.util.List;
+
+import javax.servlet.ServletOutputStream;
+
+import org.apache.commons.lang3.StringUtils;
+import org.apache.poi.hssf.usermodel.HSSFRow;
+import org.apache.poi.hssf.usermodel.HSSFSheet;
+import org.apache.poi.hssf.usermodel.HSSFWorkbook;
+import org.apache.struts2.ServletActionContext;
+import org.hibernate.criterion.DetachedCriteria;
+import org.hibernate.criterion.Restrictions;
+import org.springframework.context.annotation.Scope;
+import org.springframework.stereotype.Controller;
+
+import com.hao.bos.domain.Region;
+import com.hao.bos.domain.subarea;
+import com.hao.bos.web.action.base.BaseAction;
+@Controller
+@Scope("prototype")
+public class SubareaAction extends BaseAction<subarea> {
+	
+	public String subareaAdd(){
+		this.subareaService.savesubarea(this.getModel());
+		return "subareaList";
+	}
+	
+	/**
+	 * 条件查询并分页显示分区数据
+	 * @return
+	 * @throws IOException
+	 */
+	public String subareaPageQuery() throws IOException{
+		//查询之前，封装条件
+		DetachedCriteria detachedCriteria = this.detachedCriteria;
+		Region region = this.getModel().getRegion();
+		String addresskey = this.getModel().getAddresskey();
+		
+		if(StringUtils.isNotBlank(addresskey)){
+			//按照地址关键字模糊查询
+			detachedCriteria.add(Restrictions.like("addressKey", "%"+addresskey+"%"));
+		}
+		if(region != null){
+			//创建别名
+			detachedCriteria.createAlias("region", "r");
+			String province = region.getProvince();
+			String city = region.getCity();
+			String district = region.getDistrict();
+			
+			if(StringUtils.isNotBlank(province)){
+				//按照省进行模糊查询
+				detachedCriteria.add(Restrictions.like("r.province", "%"+province+"%"));
+			}
+			
+			if(StringUtils.isNotBlank(city)){
+				//按照市进行模糊查询
+				detachedCriteria.add(Restrictions.like("r.city", "%"+city+"%"));
+			}
+			if(StringUtils.isNotBlank(district)){
+				//按照区进行模糊查询
+				detachedCriteria.add(Restrictions.like("r.district", "%"+district+"%"));
+			}
+		}
+		
+		
+		String[] p = new String[]{
+				
+				"decidedzone",
+				"subareas",
+				"currentPage",
+				"pageSize",
+				"firstResult",
+				"detachedCriteria"
+		};
+		this.pageQuery(p);
+		return NONE;
+	}
+	
+	/**
+	 * 导出分区数据
+	 * @return
+	 * @throws IOException
+	 */
+	public String exportXls() throws IOException{
+		//获得所有分区数据
+		List<subarea> subareas = this.subareaService.findSubareaAll();
+		//在内存中创建一个Excel文件，通过输出流写到客户端提供下载
+		HSSFWorkbook workbook = new HSSFWorkbook();
+		//创建一个sheet页（需要写出的数据）
+		HSSFSheet sheet = workbook.createSheet("美滋滋");
+		//创建标题行
+		HSSFRow headRow = sheet.createRow(0);
+		headRow.createCell(0).setCellValue("分区编号");
+		headRow.createCell(1).setCellValue("区域编号");
+		headRow.createCell(2).setCellValue("地址关键字");
+		headRow.createCell(3).setCellValue("省市区");
+		
+		//设置数据
+		for(subarea subarea :subareas){
+			//创建一个新行(行号为获得最后一行然后加1)
+			HSSFRow dataRow = sheet.createRow(sheet.getLastRowNum()+1);
+			dataRow.createCell(0).setCellValue(subarea.getId());
+			dataRow.createCell(1).setCellValue(subarea.getRegion().getId());
+			dataRow.createCell(2).setCellValue(subarea.getAddresskey());
+			Region region = subarea.getRegion();
+			dataRow.createCell(3).setCellValue(region.getProvince()+region.getCity()+region.getDistrict());
+		}
+		
+		//设置文件名
+		String filename = new String( "美滋滋之老哥下载.xls".getBytes("UTF-8"), "ISO8859-1" );
+		
+		//获得访问的浏览器类型
+		//String agent = ServletActionContext.getRequest().getHeader("User-Agent");
+		ServletActionContext.getResponse().setHeader( "Content-Disposition", "attachment;filename=" + filename );
+		//一个流，两个头
+		//获取输出流
+		ServletOutputStream out = ServletActionContext.getResponse().getOutputStream();
+		//获取下载的文件类型
+		String contentType = ServletActionContext.getServletContext().getMimeType(filename);
+		//设置下载文件类型
+		ServletActionContext.getResponse().setContentType(contentType);
+		//将数据写出
+		workbook.write(out);
+		return NONE;
+	}
+	
+
+}
