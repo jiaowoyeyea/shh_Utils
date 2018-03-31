@@ -1,0 +1,206 @@
+
+import java.io.IOException;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+import java.util.List;
+
+import javax.annotation.Resource;
+
+import org.apache.struts2.ServletActionContext;
+import org.hibernate.criterion.DetachedCriteria;
+import org.springframework.beans.factory.annotation.Autowired;
+
+import com.hao.bos.service.RegionService;
+import com.hao.bos.service.StaffService;
+import com.hao.bos.service.SubareaService;
+import com.hao.bos.utlis.PageBean;
+import com.opensymphony.xwork2.ActionContext;
+import com.opensymphony.xwork2.ActionSupport;
+import com.opensymphony.xwork2.ModelDriven;
+
+import net.sf.json.JSONArray;
+import net.sf.json.JSONObject;
+import net.sf.json.JsonConfig;
+
+public class BaseAction<T> extends ActionSupport implements ModelDriven<T> {
+	//模型对象
+	private T model;
+	
+	//
+	Class<T> entityClass;
+	/**
+	 * 在构造方法中实例化模型对象
+	 */
+	public BaseAction(){
+		//获得运行时的实际类型
+		ParameterizedType genericSuperclass = (ParameterizedType) this.getClass().getGenericSuperclass();
+		//获得实际参数(一个数组)
+		Type[] actualTypeArguments = genericSuperclass.getActualTypeArguments();
+		
+		entityClass = (Class<T>) actualTypeArguments[0];
+		detachedCriteria =  DetachedCriteria.forClass(entityClass);
+		
+		try {
+			model = entityClass.newInstance();
+		} catch (InstantiationException e) {
+			e.printStackTrace();
+		} catch (IllegalAccessException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	public T getModel() {
+		
+		return model;
+	}
+	
+	//封装分页参数
+	private int page;//页码
+	
+	private int rows;//每页显示记录数
+	
+	public DetachedCriteria detachedCriteria = null;
+	
+	/**
+	 * 分页查询
+	 * @return
+	 * @throws IOException 
+	 */
+	public String pageQuery(String[] p) throws IOException{
+		
+		
+		
+		PageBean<T> pageBean = new PageBean<T>(this.page, this.rows, detachedCriteria);
+		
+		this.叫我老哥就好了.pageQuery(pageBean);
+		//将PageBean对象转为json返回
+		
+		JsonConfig config = new JsonConfig();
+		config.setExcludes(p);
+		
+		JSONObject jsonObject = JSONObject.fromObject(pageBean,config);
+		String json = jsonObject.toString();
+		
+		ServletActionContext.getResponse().setContentType("text/json;charset=UTF-8");
+		ServletActionContext.getResponse().getWriter().print(json);
+		
+		
+		return NONE;
+	}
+	
+	public void writeList2Json(List<T> list, String[] excludes) throws IOException{
+		JsonConfig config = new JsonConfig();
+		config.setExcludes(excludes);
+		JSONArray jsonObject = JSONArray.fromObject(list, config);
+		String json = jsonObject.toString();
+		ServletActionContext.getResponse().setContentType("text/json;charset=UTF-8");
+		ServletActionContext.getResponse().getWriter().print(json);
+	}
+	
+	
+	public int getPage() {
+		return page;
+	}
+	
+	public void setPage(int page) {
+		this.page = page;
+	}
+	
+	public int getRows() {
+		return rows;
+	}
+	
+	public void setRows(int rows) {
+		this.rows = rows;
+	}
+	
+	
+	/*//使用注解方式进行依赖注入
+	@Resource
+	public UserService userService;*/
+	
+
+	@Resource
+	public 自定义服务层接口 稳如自定义岂不是美滋滋;
+	@Resource
+	protected 自定义服务层接口 稳如美滋滋岂不是美滋滋;
+	@Autowired
+	protected 自定义服务层接口 叫我老哥就好了;
+		
+	
+	
+	//提供公共的方法，简化操作
+	
+	/**
+	 * 给context赋值
+	 * @param key
+	 * @param value
+	 */
+	public void put(String key, Object value){
+		ActionContext.getContext().put(key, value);
+	}
+	
+	/**
+	 * 将数据压入值栈
+	 * @param obj
+	 */
+	public void push(Object obj){
+		ActionContext.getContext().getValueStack().push(obj);
+	}
+	
+	/**
+	 * 将数据存入session
+	 * @param key
+	 * @param value
+	 */
+	public void sessionPut(String key, Object value){
+		ActionContext.getContext().getSession().put(key, value);
+	}
+	
+	/**
+	 *将数据存入application
+	 * @param key
+	 * @param value
+	 */
+	public void applicationPut(String key, Object value){
+		ActionContext.getContext().getApplication().put(key, value);
+	}
+	
+	/**
+	 * 将数据设置入值栈
+	 * @param key
+	 * @param value
+	 */
+	public void set(String key, Object value){
+		ActionContext.getContext().getValueStack().set(key, value);
+	}
+	
+	/**
+	 * 根据key从context取值
+	 * @param key
+	 * @return
+	 */
+	public Object get(String key){
+		return ActionContext.getContext().get(key);
+	}
+	
+	/**
+	 * 根据key从session取值
+	 * @param key
+	 * @return
+	 */
+	public Object sessionGet(String key){
+		return ActionContext.getContext().getSession().get(key);
+	}
+	
+	/**
+	 * 根据key从application取值
+	 * @param key
+	 * @return
+	 */
+	public Object applicationGet(String key){
+		return ActionContext.getContext().getApplication().get(key);
+	}
+	
+	
+	
