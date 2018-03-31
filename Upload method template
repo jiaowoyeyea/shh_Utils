@@ -1,0 +1,131 @@
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.apache.commons.lang3.StringUtils;
+import org.apache.poi.hssf.usermodel.HSSFSheet;
+import org.apache.poi.hssf.usermodel.HSSFWorkbook;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.struts2.ServletActionContext;
+import org.springframework.context.annotation.Scope;
+import org.springframework.stereotype.Controller;
+
+import com.hao.bos.domain.Region;
+import com.hao.bos.utlis.PinYin4jUtils;
+import com.hao.bos.web.action.base.BaseAction;
+@Controller
+@Scope("prototype")
+public class RegionAction extends BaseAction<Region> {
+	
+	//接收上传的文件
+	private File myFile;
+	public void setMyFile(File myFile) {
+		this.myFile = myFile;
+	}
+	private String myFileFileName;
+	public void setMyFileFileName(String myFileFileName) {
+		this.myFileFileName = myFileFileName;
+	}
+	private String myFileContentType;
+	public void setMyFileContentType(String myFileContentType) {
+		this.myFileContentType = myFileContentType;
+	}
+	
+	/**
+	 * 文件上传
+	 * @return
+	 * @throws Exception
+	 */
+	public String importXls() throws Exception{
+		String flag = "1";
+		try {
+			//使用POI解析Excel文件
+			HSSFWorkbook workbook = new HSSFWorkbook(new FileInputStream(myFile));
+			//获得第一个sheet页
+			HSSFSheet sheetAt = workbook.getSheetAt(0);
+			List<Region> regions = new ArrayList<Region>();
+			
+			for (Row row : sheetAt){
+				//去除标题行
+				int rowNum = row.getRowNum();
+				if(rowNum == 0){
+					continue;
+				}
+				String id = row.getCell(0).getStringCellValue();
+				String province = row.getCell(1).getStringCellValue();
+				String city = row.getCell(2).getStringCellValue();
+				String district = row.getCell(3).getStringCellValue();
+				String postcode = row.getCell(4).getStringCellValue();
+				
+				//封装参数
+				Region region = new Region(id,province,city,district,postcode,null,null,null);
+				
+				//简码和拼音
+				city = city.substring(0, city.length()-1);
+				String[] stringToPinyin = PinYin4jUtils.stringToPinyin(city);
+				String citycode = StringUtils.join(stringToPinyin, "");
+				
+				province = province.substring(0, province.length()-1);
+				district = district.substring(0, district.length()-1);
+				String info = province+city+district;
+				String[] headByString = PinYin4jUtils.getHeadByString(info);
+				String shortcode = StringUtils.join(headByString, "");
+				
+				//封装参数
+				region.setPostcode(postcode);
+				region.setShortcode(shortcode);
+				region.setCitycode(citycode);
+				regions.add(region);
+			}
+			
+			//将读取到的数据添加入数据库
+			this.regionService.saveRegionBatch(regions);
+		} catch (Exception e) {
+			flag = "老哥不稳";
+		}
+		//将结果写回
+		ServletActionContext.getResponse().setContentType("text/html;charset=UTF-8");
+		ServletActionContext.getResponse().getWriter().print(flag);
+		
+		return NONE;
+	}
+	
+	
+	/**
+	 * 分页显示当前页区域数据
+	 * @return
+	 * @throws IOException
+	 */
+	public String regionPageBean() throws IOException{
+		String[] excludesp = new String[]{"currentPage","pageSize","firstResult","subareas"};
+		this.pageQuery(excludesp);
+		return NONE;
+	}
+	
+	//模糊查询条件
+	private String p;
+	public void setP(String p) {
+		this.p = p;
+	}
+	
+	public String regionListAjax() throws IOException{
+		List<Region> regions = null;
+		if(StringUtils.isNotBlank(p)){
+			regions = this.regionService.findRegionByQ(p);
+		}else{
+			regions = this.regionService.findRegionAll();
+			
+		}
+		
+		String[] excludes = new String[]{
+				"subareas"
+		};
+		
+		this.writeList2Json(regions, excludes);
+		
+		return NONE;
+	}
+}
